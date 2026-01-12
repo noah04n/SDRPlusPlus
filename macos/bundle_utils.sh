@@ -46,59 +46,49 @@ bundle_get_second_element() {
 
 # bundle_get_exec_deps [exec_path]
 bundle_get_exec_deps() {
-    DEPS_RAW=$(otool -L $1 | tail -n +2)
-
-    # Iterate over all lines
-    echo "$DEPS_RAW" | while read -r DEP; do
-        echo $(bundle_get_first_element $DEP)
-    done
+    otool -L "$1" | tail -n +2 | sed 's/^[[:space:]]*\(.*\) (compatibility.*/\1/'
 }
 
 # bundle_get_exec_rpaths [exec_path]
 bundle_get_exec_rpaths() {
-    RPATHS_RAW=$(otool -l $1 | grep "path\ ")
-
-    # Iterate over all lines
-    echo "$RPATHS_RAW" | while read -r RPATH; do
-        echo $(bundle_get_second_element $RPATH)
-    done
+    otool -l "$1" | grep "path " | sed 's/ *path \(.*\) (offset.*/\1/'
 }
 
 # bundle_find_full_path [dep_path] [exec_rpaths]
 bundle_find_full_path() {
     # If path is relative to rpath, find the full path
-    local IS_RPATH_RELATIVE=$(echo $1 | grep @rpath/)
+    local IS_RPATH_RELATIVE=$(echo "$1" | grep @rpath/)
     if [ "$IS_RPATH_RELATIVE" = "" ]; then
-        echo $1
+        echo "$1"
         return
     fi
 
-    local RPATH_NEXT=$(echo $1 | cut -c 8-)
+    local RPATH_NEXT=$(echo "$1" | cut -c 8-)
 
     # Search in the exec's RPATH
     echo "$2" | while read -r RPATH; do
         # If not found, skip
-        if [ ! -f $RPATH/$RPATH_NEXT ]; then
+        if [ ! -f "$RPATH/$RPATH_NEXT" ]; then
             continue
         fi
 
         # Correct dep path
-        echo $RPATH/$RPATH_NEXT
+        echo "$RPATH/$RPATH_NEXT"
         return -1
     done
 
     # Search other common paths
-    if [ -f /usr/local/lib/$RPATH_NEXT ]; then
-        echo /usr/local/lib/$RPATH_NEXT 
+    if [ -f "/usr/local/lib/$RPATH_NEXT" ]; then
+        echo "/usr/local/lib/$RPATH_NEXT"
         return
     fi
-    if [ -f /Library/Frameworks/$RPATH_NEXT ]; then
-        echo /Library/Frameworks/$RPATH_NEXT 
+    if [ -f "/Library/Frameworks/$RPATH_NEXT" ]; then
+        echo "/Library/Frameworks/$RPATH_NEXT"
         return
     fi
 
     # Not found, give up
-    echo $1
+    echo "$1"
 }
 
 # ========================= Public Functions =========================
@@ -123,30 +113,30 @@ bundle_install_binary() {
         return
     fi
 
-    local EXEC_NAME=$(basename $3)
-    local EXEC_DEST=$2/$EXEC_NAME
+    local EXEC_NAME=$(basename "$3")
+    local EXEC_DEST="$2/$EXEC_NAME"
 
     # Check if file exists
-    if [ ! -f $3 ]; then
-        echo "==NOT== Installing" $3
+    if [ ! -f "$3" ]; then
+        echo "==NOT== Installing" "$3"
         return
     fi
 
     # Get RPATHs
-    local RPATHS=$(bundle_get_exec_rpaths $3)
+    local RPATHS=$(bundle_get_exec_rpaths "$3")
 
-    echo "Installing" $3
+    echo "Installing" "$3"
 
     # Copy it to its install location
-    cp $3 $EXEC_DEST
+    cp "$3" "$EXEC_DEST"
     
     # Install dependencies and change path
-    local DEPS=$(bundle_get_exec_deps $EXEC_DEST)
+    local DEPS=$(bundle_get_exec_deps "$EXEC_DEST")
     echo "$DEPS" | while read -r DEP; do
-        local DEP_NAME=$(basename $DEP)
+        local DEP_NAME=$(basename "$DEP")
 
         # Skip if this dep is blacklisted
-        local NOT_TO_BE_INSTALLED=$(bundle_is_not_to_be_installed $DEP_NAME)
+        local NOT_TO_BE_INSTALLED=$(bundle_is_not_to_be_installed "$DEP_NAME")
         if [ "$NOT_TO_BE_INSTALLED" = "1" ]; then
             continue
         fi
@@ -156,26 +146,26 @@ bundle_install_binary() {
             continue
         fi
 
-        local DEP_PATH=$(bundle_find_full_path $DEP $RPATHS)
+        local DEP_PATH=$(bundle_find_full_path "$DEP" "$RPATHS")
 
         # If the dependency is not installed, install it
-        if [ ! -f $1/Contents/Frameworks/$DEP_NAME ]; then
-            bundle_install_binary $1 $1/Contents/Frameworks $DEP_PATH
+        if [ ! -f "$1/Contents/Frameworks/$DEP_NAME" ]; then
+            bundle_install_binary "$1" "$1/Contents/Frameworks" "$DEP_PATH"
         fi
 
         # Fix path
-        install_name_tool -change $DEP @rpath/$DEP_NAME $EXEC_DEST
+        install_name_tool -change "$DEP" "@rpath/$DEP_NAME" "$EXEC_DEST"
     done
 
     # Remove all its rpaths
     if [ "$RPATHS" != "" ]; then
         echo "$RPATHS" | while read -r RPATH; do
-            install_name_tool -delete_rpath $RPATH $EXEC_DEST
+            install_name_tool -delete_rpath "$RPATH" "$EXEC_DEST"
         done
     fi
     
     # Add new single rpath
-    install_name_tool -add_rpath @loader_path/../Frameworks $EXEC_DEST
+    install_name_tool -add_rpath @loader_path/../Frameworks "$EXEC_DEST"
 }
 
 bundle_create_icns() {
