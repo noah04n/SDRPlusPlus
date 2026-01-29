@@ -24,6 +24,9 @@ bundle_create_icns root/res/icons/sdrpp.macos.png $BUNDLE/Contents/Resources/sdr
 # Create the property list
 bundle_create_plist sdrpp SDR++ org.sdrpp.sdrpp 1.2.1 sdrp sdrpp sdrpp $BUNDLE/Contents/Info.plist
 
+# Add Microphone Usage Description (Required for Audio Source)
+plutil -insert NSMicrophoneUsageDescription -string "SDR++ needs microphone access for the Audio Source module." $BUNDLE/Contents/Info.plist
+
 # ========================= Install binaries =========================
 
 # Core

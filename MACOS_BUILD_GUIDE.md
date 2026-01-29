@@ -116,14 +116,6 @@ cd ..
 sh make_macos_bundle.sh ./build ./SDR++Local.app
 ```
 
-## 5. Enable Microphone Access
+## 5. Done
 
-This step is required for the Audio Source to work.
-
-```sh
-plutil -insert NSMicrophoneUsageDescription -string "SDR++ needs microphone access for the Audio Source module." SDR++Local.app/Contents/Info.plist
-```
-
-## 6. Done
-
-Drag `SDR++Local.app` to your Applications folder. You can also run it from the terminal with `./SDR++Local.app/Contents/MacOS/sdrpp`.
+Drag `SDR++Local.app` to your Applications folder. It will now be lighter and focused on RTL-SDR functionality.
